@@ -95,24 +95,29 @@
   .game {
     border-radius: 5px; padding: 2px 3px;
     font-size: 9.5px; line-height: 1.25; letter-spacing: -0.3px;
-    background: var(--kia); color: #fff;
+    background: #fff; color: var(--kia);
+    border: 1.5px solid var(--kia);
   }
-  .game b { display: block; font-size: 10px; }
-  .game i { display: block; font-style: normal; opacity: 0.85; white-space: nowrap; }
-  .cell.off .game { background: #fff; color: var(--kia); }
-  .game.maybe { background: transparent; color: var(--kia); box-shadow: inset 0 0 0 1px var(--kia); }
-  .cell.off .game.maybe { background: transparent; color: #fff; box-shadow: inset 0 0 0 1px #fff; }
+  .game.maybe { border-style: dashed; border-width: 1px; }
+  .cell.off .game { border-color: #fff; }
+  .game .vs { display: flex; align-items: center; gap: 2px; font-weight: 700; font-size: 10px; height: 20px; }
+  .game .vs img { height: 19px; max-width: 30px; min-width: 0; object-fit: contain; }
+  .game i { display: block; font-style: normal; opacity: 0.8; white-space: nowrap; }
+  .game .res { opacity: 1; font-weight: 800; }
+  .game .res.L, .game .res.D { opacity: 0.55; }
+  .game.cancel { opacity: 0.55; }
 
   .legend {
-    display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px;
-    font-size: 11px; color: #555; padding: 0 6px;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 4px 9px;
+    font-size: 10.5px; color: #555; padding: 0 4px;
   }
   .legend span { display: inline-flex; align-items: center; gap: 5px; }
   .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
   .sw.work { background: #fff; box-shadow: inset 0 0 0 1px #c9c9cc; }
   .sw.off { background: var(--off); }
-  .sw.game { background: var(--kia); }
-  .sw.maybe { box-shadow: inset 0 0 0 1px var(--kia); }
+  .sw.game { box-shadow: inset 0 0 0 2px var(--kia); }
+  .sw.maybe { border: 1px dashed var(--kia); }
+  .legend .updated { margin-left: auto; color: var(--muted); font-size: 10px; }
 
   .sheet-bg {
     position: fixed; inset: 0; background: rgba(0,0,0,0.35);
@@ -131,6 +136,10 @@
   .tag.work { background: #f0f0f2; color: #333; }
   .sheet .info { margin-top: 14px; font-size: 14px; line-height: 1.7; }
   .sheet .info .stage { font-weight: 800; color: var(--kia); }
+  .sheet .info .match { display: flex; align-items: center; gap: 6px; }
+  .sheet .info .match img { height: 22px; max-width: 40px; object-fit: contain; }
+  .sheet .info .score { font-weight: 800; }
+  .sheet .info + .info { border-top: 1px solid var(--line); padding-top: 12px; }
   .sheet .info .note { font-size: 12px; color: var(--muted); }
   .sheet .none { margin-top: 12px; font-size: 14px; color: var(--muted); }
 </style>
@@ -161,6 +170,7 @@
     <span><i class="sw off"></i>휴무</span>
     <span><i class="sw game"></i>KIA 경기</span>
     <span><i class="sw maybe"></i>진출·필요 시</span>
+    <span class="updated" id="updated"></span>
   </div>
 </div>
 
@@ -173,29 +183,29 @@
   const ANCHOR = Date.UTC(2026, 9, 16);
   const DAY = 86400000;
 
-  // KIA 타이거즈 2026 포스트시즌 (정규시즌 3위, 준PO부터)
-  // maybe: 이전 시리즈 결과나 시리즈 진행에 따라 열리는 경기
+  // KIA 경기 일정은 games.json에서 읽는다 (GitHub Actions가 매일 03:00 KST에 KBO 공식 일정으로 갱신)
   const PARKS = {
     '광주': '광주-기아 챔피언스필드',
     '잠실': '잠실야구장',
     '대구': '대구삼성라이온즈파크',
     '수원': '수원KT위즈파크',
+    '창원': '창원NC파크',
+    '문학': '인천SSG랜더스필드',
+    '사직': '사직야구장',
+    '고척': '고척스카이돔',
+    '대전': '대전한화생명볼파크',
   };
-  const GAMES = {
-    '2026-10-17': { stage: '준플레이오프 1차전', opp: 'LG', oppFull: 'LG 트윈스', park: '광주', time: '14:00' },
-    '2026-10-18': { stage: '준플레이오프 2차전', opp: 'LG', oppFull: 'LG 트윈스', park: '광주', time: '14:00' },
-    '2026-10-20': { stage: '준플레이오프 3차전', opp: 'LG', oppFull: 'LG 트윈스', park: '잠실', time: '18:30' },
-    '2026-10-21': { stage: '준플레이오프 4차전', opp: 'LG', oppFull: 'LG 트윈스', park: '잠실', maybe: '필요 시' },
-    '2026-10-23': { stage: '준플레이오프 5차전', opp: 'LG', oppFull: 'LG 트윈스', park: '광주', maybe: '필요 시' },
-    '2026-10-25': { stage: '플레이오프 1차전', opp: '삼성', oppFull: '삼성 라이온즈', park: '대구', time: '14:00', maybe: '준PO 승리 시' },
-    '2026-10-26': { stage: '플레이오프 2차전', opp: '삼성', oppFull: '삼성 라이온즈', park: '대구', time: '18:30', maybe: '준PO 승리 시' },
-    '2026-10-28': { stage: '플레이오프 3차전', opp: '삼성', oppFull: '삼성 라이온즈', park: '광주', maybe: '준PO 승리 시' },
-    '2026-10-29': { stage: '플레이오프 4차전', opp: '삼성', oppFull: '삼성 라이온즈', park: '광주', maybe: '준PO 승리 시 · 필요 시' },
-    '2026-10-31': { stage: '플레이오프 5차전', opp: '삼성', oppFull: '삼성 라이온즈', park: '대구', time: '14:00', maybe: '준PO 승리 시 · 필요 시' },
-    '2026-11-02': { stage: '한국시리즈 1차전', opp: 'KT', oppFull: 'KT 위즈', park: '수원', maybe: '한국시리즈 진출 시' },
-    '2026-11-06': { stage: '한국시리즈 4차전', opp: 'KT', oppFull: 'KT 위즈', park: '광주', maybe: '한국시리즈 진출 시' },
-    '2026-11-10': { stage: '한국시리즈 7차전', opp: 'KT', oppFull: 'KT 위즈', park: '수원', maybe: '한국시리즈 진출 시 · 필요 시' },
+  const TEAMS = {
+    'LG': 'LG 트윈스', '한화': '한화 이글스', 'SSG': 'SSG 랜더스', '삼성': '삼성 라이온즈', 'NC': 'NC 다이노스',
+    'KT': 'KT 위즈', '롯데': '롯데 자이언츠', '두산': '두산 베어스', '키움': '키움 히어로즈',
   };
+  let GAMES = {};
+  let SEASON = 2026;
+  const logo = code => code
+    ? `<img src="https://6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/emblem/regular/${SEASON}/emblem_${code}.png" alt="" onerror="this.remove()">`
+    : '';
+  const result = g => g.kia == null ? null : g.kia > g.oppScore ? 'W' : g.kia < g.oppScore ? 'L' : 'D';
+  const RESULT_TEXT = { W: '승', L: '패', D: '무' };
 
   const pad = n => String(n).padStart(2, '0');
   const key = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`;
@@ -232,12 +242,17 @@
       if (date.getDay() === 6) cell.classList.add('sat');
       if (k === todayKey) cell.classList.add('today');
       cell.innerHTML = `<div class="d"><span>${cd}</span></div>`;
-      const g = GAMES[k];
-      if (g && cm === m) {
-        const el = document.createElement('div');
-        el.className = 'game' + (g.maybe ? ' maybe' : '');
-        el.innerHTML = `<b>vs ${g.opp}</b><i>${g.park}</i>${g.time ? `<i>${g.time}</i>` : ''}`;
-        cell.appendChild(el);
+      if (cm === m) {
+        for (const g of GAMES[k] || []) {
+          const el = document.createElement('div');
+          el.className = 'game' + (g.maybe ? ' maybe' : '') + (g.note ? ' cancel' : '');
+          const r = result(g);
+          const last = g.note ? '취소'
+                     : r ? `<span class="res ${r}">${RESULT_TEXT[r]} ${g.kia}:${g.oppScore}</span>`
+                     : g.time;
+          el.innerHTML = `<div class="vs">vs${logo(g.oppCode) || ' ' + g.opp}</div><i>${g.park}</i>${last ? `<i>${last}</i>` : ''}`;
+          cell.appendChild(el);
+        }
       }
       cell.addEventListener('click', () => openSheet(cy, cm, cd));
       grid.appendChild(cell);
@@ -250,18 +265,23 @@
   function openSheet(y, m, d) {
     const k = key(y, m, d);
     const st = status(y, m, d);
-    const g = GAMES[k];
+    const list = GAMES[k] || [];
     const tag = st === 'off' ? '<span class="tag off">휴무</span>'
               : st === 'work' ? '<span class="tag work">근무</span>' : '';
     let body = '<div class="none">KIA 경기 없음</div>';
-    if (g) {
-      body = `<div class="info">
-        <div class="stage">⚾ ${g.stage}</div>
-        <div>KIA 타이거즈 vs ${g.oppFull}</div>
-        <div>📍 ${PARKS[g.park]}</div>
-        ${g.time ? `<div>🕑 ${g.time}</div>` : ''}
-        ${g.maybe ? `<div class="note">${g.maybe} 열리는 경기 · 우천 시 다음 날로 순연</div>` : '<div class="note">우천 시 다음 날로 순연</div>'}
-      </div>`;
+    if (list.length) {
+      body = list.map(g => {
+        const r = result(g);
+        return `<div class="info">
+          <div class="stage">⚾ ${g.stage}</div>
+          <div class="match">${logo('HT')}KIA 타이거즈 vs ${logo(g.oppCode)}${TEAMS[g.opp] || g.opp}</div>
+          ${r ? `<div class="score">${RESULT_TEXT[r]} · KIA ${g.kia} : ${g.oppScore} ${g.opp}</div>` : ''}
+          <div>📍 ${PARKS[g.park] || g.park} (${g.home ? '홈' : '원정'})</div>
+          ${g.time ? `<div>🕑 ${g.time}</div>` : ''}
+          ${g.note ? `<div class="note">${g.note}</div>` : ''}
+          ${g.maybe ? `<div class="note">${g.maybe} 열리는 경기</div>` : ''}
+        </div>`;
+      }).join('');
     }
     sheet.innerHTML = `<div class="grab"></div>
       <h2>${m + 1}월 ${d}일 (${WD[new Date(y, m, d).getDay()]}) ${tag}</h2>${body}`;
@@ -293,6 +313,15 @@
   }, { passive: true });
 
   render();
+  fetch('games.json?t=' + Date.now(), { cache: 'no-store' })
+    .then(r => r.json())
+    .then(data => {
+      GAMES = data.games || {};
+      SEASON = data.season || SEASON;
+      if (data.updated) document.getElementById('updated').textContent = `일정 갱신 ${data.updated.slice(5).replace('-', '/')}`;
+      render();
+    })
+    .catch(() => { document.getElementById('updated').textContent = '일정 불러오기 실패'; });
 </script>
 </body>
 </html>
