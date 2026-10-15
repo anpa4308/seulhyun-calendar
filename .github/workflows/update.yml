@@ -1,0 +1,52 @@
+name: Update KIA schedule
+
+on:
+  schedule:
+    - cron: '5 * * * *'   # every hour (minute 5 avoids the top-of-hour rush)
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch KIA schedule from KBO
+        id: fetch
+        continue-on-error: true   # keep the last games.json if KBO is down
+        shell: pwsh
+        run: ./update-games.ps1
+
+      - name: Commit games.json
+        if: steps.fetch.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add games.json
+          git commit -m "Update KIA schedule"
+          git push
+
+      # hourly runs only redeploy when the schedule changed; manual runs and pushes always deploy
+      - uses: actions/configure-pages@v5
+        if: steps.fetch.outputs.changed == 'true' || github.event_name != 'schedule'
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.fetch.outputs.changed == 'true' || github.event_name != 'schedule'
+        with:
+          path: .
+      - id: deployment
+        if: steps.fetch.outputs.changed == 'true' || github.event_name != 'schedule'
+        uses: actions/deploy-pages@v4
