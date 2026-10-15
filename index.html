@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f4f4f5">
+<title>슬현's 휴무 캘린더</title>
+<style>
+  :root {
+    --ink: #1a1a1a;
+    --muted: #8a8a8a;
+    --line: #e7e7e9;
+    --bg: #f4f4f5;
+    --card: #ffffff;
+    --off: #e5383b;
+    --kia: #1b1f3b;
+    --sun: #d62828;
+    --sat: #2a6fdb;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", "Malgun Gothic", sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+  }
+  .app {
+    height: 100vh;
+    height: 100dvh;
+    max-width: 560px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: calc(env(safe-area-inset-top) + 12px) 8px calc(env(safe-area-inset-bottom) + 8px);
+  }
+  header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 0 6px;
+  }
+  h1 { font-size: 19px; font-weight: 800; letter-spacing: -0.4px; }
+  .by { font-size: 11px; color: var(--muted); font-weight: 600; }
+
+  .nav { display: flex; align-items: center; justify-content: space-between; padding: 0 2px; }
+  .nav button {
+    border: 0; background: var(--card); color: var(--ink);
+    width: 38px; height: 34px; border-radius: 10px;
+    font-size: 17px; box-shadow: 0 0 0 1px var(--line); cursor: pointer;
+  }
+  .nav .mid { display: flex; align-items: center; gap: 8px; }
+  .month { font-size: 17px; font-weight: 800; }
+  .nav .today-btn { width: auto; height: 26px; padding: 0 9px; font-size: 11px; font-weight: 700; border-radius: 13px; }
+
+  .cal {
+    flex: 1; min-height: 0;
+    display: flex; flex-direction: column;
+    background: var(--card); border-radius: 14px; overflow: hidden;
+    box-shadow: 0 0 0 1px var(--line);
+  }
+  .dow {
+    display: grid; grid-template-columns: repeat(7, 1fr);
+    text-align: center; font-size: 11px; font-weight: 700;
+    padding: 7px 0; border-bottom: 1px solid var(--line);
+  }
+  .dow span:first-child { color: var(--sun); }
+  .dow span:last-child { color: var(--sat); }
+  .grid {
+    flex: 1; min-height: 0;
+    display: grid; grid-template-columns: repeat(7, 1fr); grid-template-rows: repeat(6, 1fr);
+  }
+  .cell {
+    min-width: 0; overflow: hidden;
+    display: flex; flex-direction: column; gap: 3px;
+    padding: 4px 3px;
+    border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);
+    background: var(--card); cursor: pointer;
+  }
+  .cell:nth-child(7n) { border-right: 0; }
+  .cell:nth-last-child(-n+7) { border-bottom: 0; }
+  .cell.off { background: var(--off); color: #fff; border-color: rgba(255,255,255,0.28); }
+  .cell.out { opacity: 0.3; }
+  .d { font-size: 12px; font-weight: 700; line-height: 18px; height: 18px; }
+  .cell.sun:not(.off) .d { color: var(--sun); }
+  .cell.sat:not(.off) .d { color: var(--sat); }
+  .cell.today .d span {
+    display: inline-block; min-width: 18px; height: 18px; border-radius: 9px; text-align: center;
+    background: var(--ink); color: #fff;
+  }
+  .cell.off.today .d span { background: #fff; color: var(--off); }
+
+  .game {
+    border-radius: 5px; padding: 2px 3px;
+    font-size: 9.5px; line-height: 1.25; letter-spacing: -0.3px;
+    background: var(--kia); color: #fff;
+  }
+  .game b { display: block; font-size: 10px; }
+  .game i { display: block; font-style: normal; opacity: 0.85; white-space: nowrap; }
+  .cell.off .game { background: #fff; color: var(--kia); }
+  .game.maybe { background: transparent; color: var(--kia); box-shadow: inset 0 0 0 1px var(--kia); }
+  .cell.off .game.maybe { background: transparent; color: #fff; box-shadow: inset 0 0 0 1px #fff; }
+
+  .legend {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px;
+    font-size: 11px; color: #555; padding: 0 6px;
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  .sw.work { background: #fff; box-shadow: inset 0 0 0 1px #c9c9cc; }
+  .sw.off { background: var(--off); }
+  .sw.game { background: var(--kia); }
+  .sw.maybe { box-shadow: inset 0 0 0 1px var(--kia); }
+
+  .sheet-bg {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.35);
+    display: none; align-items: flex-end; justify-content: center; z-index: 10;
+  }
+  .sheet-bg.show { display: flex; }
+  .sheet {
+    width: 100%; max-width: 560px; background: var(--card);
+    border-radius: 18px 18px 0 0;
+    padding: 18px 20px calc(env(safe-area-inset-bottom) + 22px);
+  }
+  .sheet .grab { width: 40px; height: 4px; border-radius: 2px; background: #d4d4d8; margin: -6px auto 14px; }
+  .sheet h2 { font-size: 18px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+  .tag { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 10px; }
+  .tag.off { background: var(--off); color: #fff; }
+  .tag.work { background: #f0f0f2; color: #333; }
+  .sheet .info { margin-top: 14px; font-size: 14px; line-height: 1.7; }
+  .sheet .info .stage { font-weight: 800; color: var(--kia); }
+  .sheet .info .note { font-size: 12px; color: var(--muted); }
+  .sheet .none { margin-top: 12px; font-size: 14px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>슬현's 휴무 캘린더</h1>
+    <div class="by">Made by Zealot</div>
+  </header>
+
+  <div class="nav">
+    <button id="prev" aria-label="이전 달">‹</button>
+    <div class="mid">
+      <div class="month" id="month"></div>
+      <button class="today-btn" id="today">오늘</button>
+    </div>
+    <button id="next" aria-label="다음 달">›</button>
+  </div>
+
+  <div class="cal" id="cal">
+    <div class="dow"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <div class="legend">
+    <span><i class="sw work"></i>근무</span>
+    <span><i class="sw off"></i>휴무</span>
+    <span><i class="sw game"></i>KIA 경기</span>
+    <span><i class="sw maybe"></i>진출·필요 시</span>
+  </div>
+</div>
+
+<div class="sheet-bg" id="sheetBg">
+  <div class="sheet" id="sheet"></div>
+</div>
+
+<script>
+  // 4일 근무 + 2일 휴무 반복, 2026-10-16이 근무 1일차
+  const ANCHOR = Date.UTC(2026, 9, 16);
+  const DAY = 86400000;
+
+  // KIA 타이거즈 2026 포스트시즌 (정규시즌 3위, 준PO부터)
+  // maybe: 이전 시리즈 결과나 시리즈 진행에 따라 열리는 경기
+  const PARKS = {
+    '광주': '광주-기아 챔피언스필드',
+    '잠실': '잠실야구장',
+    '대구': '대구삼성라이온즈파크',
+    '수원': '수원KT위즈파크',
+  };
+  const GAMES = {
+    '2026-10-17': { stage: '준플레이오프 1차전', opp: 'LG', oppFull: 'LG 트윈스', park: '광주', time: '14:00' },
+    '2026-10-18': { stage: '준플레이오프 2차전', opp: 'LG', oppFull: 'LG 트윈스', park: '광주', time: '14:00' },
+    '2026-10-20': { stage: '준플레이오프 3차전', opp: 'LG', oppFull: 'LG 트윈스', park: '잠실', time: '18:30' },
+    '2026-10-21': { stage: '준플레이오프 4차전', opp: 'LG', oppFull: 'LG 트윈스', park: '잠실', maybe: '필요 시' },
+    '2026-10-23': { stage: '준플레이오프 5차전', opp: 'LG', oppFull: 'LG 트윈스', park: '광주', maybe: '필요 시' },
+    '2026-10-25': { stage: '플레이오프 1차전', opp: '삼성', oppFull: '삼성 라이온즈', park: '대구', time: '14:00', maybe: '준PO 승리 시' },
+    '2026-10-26': { stage: '플레이오프 2차전', opp: '삼성', oppFull: '삼성 라이온즈', park: '대구', time: '18:30', maybe: '준PO 승리 시' },
+    '2026-10-28': { stage: '플레이오프 3차전', opp: '삼성', oppFull: '삼성 라이온즈', park: '광주', maybe: '준PO 승리 시' },
+    '2026-10-29': { stage: '플레이오프 4차전', opp: '삼성', oppFull: '삼성 라이온즈', park: '광주', maybe: '준PO 승리 시 · 필요 시' },
+    '2026-10-31': { stage: '플레이오프 5차전', opp: '삼성', oppFull: '삼성 라이온즈', park: '대구', time: '14:00', maybe: '준PO 승리 시 · 필요 시' },
+    '2026-11-02': { stage: '한국시리즈 1차전', opp: 'KT', oppFull: 'KT 위즈', park: '수원', maybe: '한국시리즈 진출 시' },
+    '2026-11-06': { stage: '한국시리즈 4차전', opp: 'KT', oppFull: 'KT 위즈', park: '광주', maybe: '한국시리즈 진출 시' },
+    '2026-11-10': { stage: '한국시리즈 7차전', opp: 'KT', oppFull: 'KT 위즈', park: '수원', maybe: '한국시리즈 진출 시 · 필요 시' },
+  };
+
+  const pad = n => String(n).padStart(2, '0');
+  const key = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`;
+  const WD = ['일', '월', '화', '수', '목', '금', '토'];
+
+  function status(y, m, d) {
+    const diff = Math.round((Date.UTC(y, m, d) - ANCHOR) / DAY);
+    if (diff < 0) return null;
+    return diff % 6 < 4 ? 'work' : 'off';
+  }
+
+  const now = new Date();
+  const todayKey = key(now.getFullYear(), now.getMonth(), now.getDate());
+  let view = { y: now.getFullYear(), m: now.getMonth() };
+  if (view.y < 2026 || (view.y === 2026 && view.m < 9)) view = { y: 2026, m: 9 };
+
+  const grid = document.getElementById('grid');
+
+  function render() {
+    const { y, m } = view;
+    document.getElementById('month').textContent = `${y}년 ${m + 1}월`;
+    const start = new Date(y, m, 1).getDay();
+    grid.innerHTML = '';
+    for (let i = 0; i < 42; i++) {
+      const date = new Date(y, m, 1 - start + i);
+      const cy = date.getFullYear(), cm = date.getMonth(), cd = date.getDate();
+      const k = key(cy, cm, cd);
+      const st = status(cy, cm, cd);
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      if (st === 'off') cell.classList.add('off');
+      if (cm !== m) cell.classList.add('out');
+      if (date.getDay() === 0) cell.classList.add('sun');
+      if (date.getDay() === 6) cell.classList.add('sat');
+      if (k === todayKey) cell.classList.add('today');
+      cell.innerHTML = `<div class="d"><span>${cd}</span></div>`;
+      const g = GAMES[k];
+      if (g && cm === m) {
+        const el = document.createElement('div');
+        el.className = 'game' + (g.maybe ? ' maybe' : '');
+        el.innerHTML = `<b>vs ${g.opp}</b><i>${g.park}</i>${g.time ? `<i>${g.time}</i>` : ''}`;
+        cell.appendChild(el);
+      }
+      cell.addEventListener('click', () => openSheet(cy, cm, cd));
+      grid.appendChild(cell);
+    }
+  }
+
+  const sheetBg = document.getElementById('sheetBg');
+  const sheet = document.getElementById('sheet');
+
+  function openSheet(y, m, d) {
+    const k = key(y, m, d);
+    const st = status(y, m, d);
+    const g = GAMES[k];
+    const tag = st === 'off' ? '<span class="tag off">휴무</span>'
+              : st === 'work' ? '<span class="tag work">근무</span>' : '';
+    let body = '<div class="none">KIA 경기 없음</div>';
+    if (g) {
+      body = `<div class="info">
+        <div class="stage">⚾ ${g.stage}</div>
+        <div>KIA 타이거즈 vs ${g.oppFull}</div>
+        <div>📍 ${PARKS[g.park]}</div>
+        ${g.time ? `<div>🕑 ${g.time}</div>` : ''}
+        ${g.maybe ? `<div class="note">${g.maybe} 열리는 경기 · 우천 시 다음 날로 순연</div>` : '<div class="note">우천 시 다음 날로 순연</div>'}
+      </div>`;
+    }
+    sheet.innerHTML = `<div class="grab"></div>
+      <h2>${m + 1}월 ${d}일 (${WD[new Date(y, m, d).getDay()]}) ${tag}</h2>${body}`;
+    sheetBg.classList.add('show');
+  }
+  sheetBg.addEventListener('click', () => sheetBg.classList.remove('show'));
+
+  function move(delta) {
+    const t = new Date(view.y, view.m + delta, 1);
+    view = { y: t.getFullYear(), m: t.getMonth() };
+    render();
+  }
+  document.getElementById('prev').addEventListener('click', () => move(-1));
+  document.getElementById('next').addEventListener('click', () => move(1));
+  document.getElementById('today').addEventListener('click', () => {
+    view = { y: now.getFullYear(), m: now.getMonth() };
+    render();
+  });
+
+  // 좌우 스와이프로 달 이동
+  let sx = null, sy = null;
+  const cal = document.getElementById('cal');
+  cal.addEventListener('touchstart', e => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
+  cal.addEventListener('touchend', e => {
+    if (sx === null) return;
+    const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) move(dx < 0 ? 1 : -1);
+    sx = null;
+  }, { passive: true });
+
+  render();
+</script>
+</body>
+</html>
