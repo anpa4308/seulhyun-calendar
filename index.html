@@ -125,7 +125,8 @@
   .sw.off { background: var(--off); }
   .sw.game { box-shadow: inset 0 0 0 2px var(--kia); }
   .sw.maybe { border: 1px dashed var(--kia); }
-  .legend .updated { margin-left: auto; color: var(--muted); font-size: 10px; }
+  .legend .updated { flex-basis: 100%; justify-content: flex-end; color: var(--muted); font-size: 10px; }
+  .legend .updated:empty { display: none; }
 
   .sheet-bg {
     position: fixed; inset: 0; background: rgba(0,0,0,0.35);
@@ -321,12 +322,17 @@
   }, { passive: true });
 
   render();
-  fetch('games.json?t=' + Date.now(), { cache: 'no-store' })
-    .then(r => r.json())
-    .then(data => {
+  // "2026-10-16 07:05" -> "07:05" (오늘) / "10/16 07:05"
+  const stamp = s => s.slice(0, 10) === todayKey ? s.slice(11) : s.slice(5).replace('-', '/');
+  const getJson = url => fetch(url + '?t=' + Date.now(), { cache: 'no-store' }).then(r => r.json());
+  Promise.all([getJson('games.json'), getJson('checked.json').catch(() => null)])
+    .then(([data, check]) => {
       GAMES = data.games || {};
       SEASON = data.season || SEASON;
-      if (data.updated) document.getElementById('updated').textContent = `일정 갱신 ${data.updated.slice(5).replace('-', '/')}`;
+      const parts = [];
+      if (check && check.checked) parts.push(`확인 ${stamp(check.checked)}`);
+      if (data.updated) parts.push(`일정 변경 ${stamp(data.updated)}`);
+      document.getElementById('updated').textContent = parts.join(' · ');
       render();
     })
     .catch(() => { document.getElementById('updated').textContent = '일정 불러오기 실패'; });
