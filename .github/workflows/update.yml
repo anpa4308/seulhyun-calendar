@@ -31,6 +31,7 @@ jobs:
         shell: pwsh
         run: ./update-games.ps1
 
+      # games.json is committed only when the schedule changed
       - name: Commit games.json
         if: steps.fetch.outputs.changed == 'true'
         run: |
@@ -40,13 +41,14 @@ jobs:
           git commit -m "Update KIA schedule"
           git push
 
-      # hourly runs only redeploy when the schedule changed; manual runs and pushes always deploy
+      # checked.json is never committed; it only goes into the deployed site
+      - name: Record check time
+        if: steps.fetch.outcome == 'success'
+        run: echo "{\"checked\":\"$(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M')\"}" > checked.json
+
       - uses: actions/configure-pages@v5
-        if: steps.fetch.outputs.changed == 'true' || github.event_name != 'schedule'
       - uses: actions/upload-pages-artifact@v3
-        if: steps.fetch.outputs.changed == 'true' || github.event_name != 'schedule'
         with:
           path: .
       - id: deployment
-        if: steps.fetch.outputs.changed == 'true' || github.event_name != 'schedule'
         uses: actions/deploy-pages@v4
