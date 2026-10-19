@@ -382,6 +382,12 @@
       if (start) { START = start; render(); }
     })
     .catch(() => {});
+
+  // 켜둔 채 날짜가 바뀌었으면 다시 화면에 나올 때 새로고침
+  document.addEventListener('visibilitychange', () => {
+    const d = new Date();
+    if (document.visibilityState === 'visible' && key(d.getFullYear(), d.getMonth(), d.getDate()) !== todayKey) location.reload();
+  });
 </script>
 <script>
   // 방문 기록 (Firestore: visits/{ip})
