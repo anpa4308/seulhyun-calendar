@@ -194,12 +194,12 @@
 </div>
 
 <script>
-  // 4일 근무 + 2일 휴무 반복. 근무 시작일(근무 1일차)마다 그날부터 주기를 새로 센다.
-  // 시작일 목록은 Firestore settings/schedule에 두고, 날짜 창의 갱신 버튼으로 바꾼다.
-  // 불러오기 전이나 실패하면 기본값(2026-10-16 시작)으로 그린다.
+  // 4일 근무 + 2일 휴무 반복. 근무 시작일(근무 1일차)부터 세고, 그 전 날짜는 표시하지 않는다.
+  // 시작일은 Firestore settings/schedule에 두고, 날짜 창의 갱신 버튼으로 바꾼다.
+  // 불러오기 전이나 실패하면 기본값(2026-10-16)으로 그린다.
   const FB = 'projects/seulhyun-calendar/databases/(default)/documents';
   const DAY = 86400000;
-  let STARTS = ['2026-10-16'];
+  let START = '2026-10-16';
 
   // KIA 경기 일정은 games.json에서 읽는다 (GitHub Actions가 매일 03:00 KST에 KBO 공식 일정으로 갱신)
   const PARKS = {
@@ -230,23 +230,21 @@
   const WD = ['일', '월', '화', '수', '목', '금', '토'];
 
   function status(y, m, d) {
-    const start = STARTS.filter(s => s <= key(y, m, d)).pop();
-    if (!start) return null;
-    const [sy, sm, sd] = start.split('-').map(Number);
+    const [sy, sm, sd] = START.split('-').map(Number);
     const diff = Math.round((Date.UTC(y, m, d) - Date.UTC(sy, sm - 1, sd)) / DAY);
+    if (diff < 0) return null;
     return diff % 6 < 4 ? 'work' : 'off';
   }
 
-  // 선택한 날부터 근무 1일차로 다시 센다. 그 이후에 있던 시작일은 지운다.
+  // 선택한 날을 새 근무 1일차로 저장한다 (예전 starts 목록 필드는 지운다)
   async function resetFrom(k) {
-    const starts = STARTS.filter(s => s < k).concat(k);
-    const res = await fetch(`https://firestore.googleapis.com/v1/${FB}/settings/schedule?updateMask.fieldPaths=starts`, {
+    const res = await fetch(`https://firestore.googleapis.com/v1/${FB}/settings/schedule?updateMask.fieldPaths=start&updateMask.fieldPaths=starts`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fields: { starts: { arrayValue: { values: starts.map(s => ({ stringValue: s })) } } } }),
+      body: JSON.stringify({ fields: { start: { stringValue: k } } }),
     });
     if (!res.ok) throw new Error(res.status);
-    STARTS = starts;
+    START = k;
   }
 
   const now = new Date();
@@ -315,7 +313,7 @@
         </div>`;
       }).join('');
     }
-    const isStart = STARTS.includes(k);
+    const isStart = START === k;
     sheet.innerHTML = `<div class="grab"></div>
       <h2>${m + 1}월 ${d}일 (${WD[new Date(y, m, d).getDay()]}) ${tag}</h2>${body}
       <button class="reset" id="reset"${isStart ? ' disabled' : ''}>${isStart ? '이 날이 근무 1일차예요' : '이 날부터 근무 1일차로 갱신'}</button>`;
@@ -380,8 +378,8 @@
   fetch(`https://firestore.googleapis.com/v1/${FB}/settings/schedule`, { cache: 'no-store' })
     .then(r => r.ok ? r.json() : null)
     .then(doc => {
-      const values = doc?.fields?.starts?.arrayValue?.values;
-      if (values?.length) { STARTS = values.map(v => v.stringValue).sort(); render(); }
+      const start = doc?.fields?.start?.stringValue;
+      if (start) { START = start; render(); }
     })
     .catch(() => {});
 </script>
