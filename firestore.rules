@@ -1,0 +1,17 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 페이지 방문 기록: 누구나 남길 수 있고, 보는 건 Firebase 콘솔에서만
+    match /visits/{ip} {
+      allow create, update: if request.resource.data.keys().hasOnly(['count', 'lastVisit']);
+    }
+
+    // 근무 시작일 목록: 누구나 읽고 날짜 창의 갱신 버튼으로 바꾼다
+    match /settings/schedule {
+      allow read: if true;
+      allow write: if request.resource.data.keys().hasOnly(['starts'])
+        && request.resource.data.starts is list
+        && request.resource.data.starts.size() <= 200;
+    }
+  }
+}
